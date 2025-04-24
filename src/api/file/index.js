@@ -80,6 +80,15 @@ export function deleteFile(id) {
   })
 }
 
+// /seo/image
+export function generateImgSeo(data) {
+  return request({
+    url: '/seo/image',
+    method: 'post',
+    data
+  })
+}
+
 // 保持原有导出以兼容旧代码
 export function savefileInfo(data) {
   return createFile(data)

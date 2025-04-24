@@ -1,6 +1,7 @@
 <template>
   <div class="component-upload-image">
     <el-upload
+      action=""
       multiple
       list-type="picture-card"
       :before-upload="handleBeforeUpload"
@@ -43,7 +44,7 @@
 <script>
 import { getOssStsToken,savefileInfo } from "@/api/file";
 import OSS from 'ali-oss';
-
+import EXIF from 'exif-js';
 export default {
   props: {
     value: [String, Object, Array],
@@ -85,7 +86,8 @@ export default {
       handler(val) {
         if (val) {
           // 首先将值转为数组
-          const list = Array.isArray(val) ? val : this.value.split(',');
+          console.log('val:', val);
+          const list = Array.isArray(val) ? val : val.split(',');
           // 然后将数组转为对象数组
           this.fileList = list.map(item => {
             if (typeof item === "string") {
@@ -109,6 +111,17 @@ export default {
     },
   },
   methods: {
+
+    getExifData(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const exifData = EXIF.readFromBinaryFile(e.target.result);
+      resolve(exifData || {});
+    };
+    reader.readAsArrayBuffer(file);
+  });
+},
     // 初始化OSS客户端
     async initOSSClient() {
       if (!this.ossConfig) {
@@ -146,7 +159,31 @@ export default {
 
         // 上传文件到OSS
         const result = await client.put(fileKey, file);
+        let processedUrls = {};
+        if (file.type.startsWith('image/')) {
+      // 定义不同尺寸的处理参数
+      const imageProcessProfiles = {
+        raw: 'auto-orient,1',
+        full: 'auto-orient,1/quality,q_90',
+        regular: 'auto-orient,1/resize,w_1200/quality,q_85',
+        small: 'auto-orient,1/resize,w_800/quality,q_75',
+        thumb: 'auto-orient,1/resize,w_200,h_200,m_fill/quality,q_60'
+      };
+      for (const [size, processStr] of Object.entries(imageProcessProfiles)) {
+        processedUrls[size] = `${result.url}?x-oss-process=image/${processStr}`;
+      }
+    }
 
+
+        // async function processImage(processStr, targetBucket) {
+        //   const result = await client.processObjectSave(
+        //     sourceImage,
+        //     targetImage,
+        //     processStr,
+        //     targetBucket
+        //   );
+        //   console.log(result.res.status);
+        // }
         // 上传成功后处理
         const uploadedFile = {
           name: result.name,
@@ -155,13 +192,13 @@ export default {
           size: file.size,
           mimeType: file.type,
           bucket: this.ossConfig.bucket,
-          key: result.name
+          key: result.name,
+          variants: processedUrls,
+          ...(file.extraInfo || {}) // 包含额外信息
         };
-
-
+        console.log('uploadedFileuploadedFile:', uploadedFile);
         this.uploadList.push(uploadedFile);
         this.uploadedSuccessfully();
-
         const fileInfo = {
           "originalName":  uploadedFile.originalName,
           "filename": uploadedFile.name,
@@ -169,8 +206,10 @@ export default {
           "mimeType": uploadedFile.mimeType,
           "url": uploadedFile.url,
           "bucket":  this.ossConfig.Bucket,
-          "key": uploadedFile.key
-}
+          "key": uploadedFile.key,
+          "variants": uploadedFile.variants,
+          "exif": uploadedFile.exif || {}
+    }
 console.log(fileInfo);
         // 这里可以调用后端API保存文件信息
         await savefileInfo(fileInfo);
@@ -184,7 +223,7 @@ console.log(fileInfo);
     },
 
     // 上传前loading加载
-    handleBeforeUpload(file) {
+    async handleBeforeUpload(file) {
       let isImg = false;
       if (this.fileType.length) {
         let fileExtension = "";
@@ -210,6 +249,16 @@ console.log(fileInfo);
           this.$modal.msgError(`上传头像图片大小不能超过 ${this.fileSize} MB!`);
           return false;
         }
+      }
+      try {
+        const exifData = await this.getExifData(file);
+        file.extraInfo = {
+          exif: exifData,
+        };
+      } catch (error) {
+         console.error('获取图片信息失败:', error);
+    // 即使获取信息失败也继续上传
+        file.extraInfo = {};
       }
       this.$modal.loading("正在上传图片，请稍候...");
       this.number++;

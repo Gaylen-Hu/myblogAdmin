@@ -38,9 +38,6 @@ module.exports = {
       [process.env.VUE_APP_BASE_API]: {
         // colin本地
         target: `http://localhost:3027`,
-        // 测试服务器
-        // target: `http://testlcw.importgogo.com/prod-api/`,
-        //  target: `https://order.unitexlogistics.com/prod-api/`,
         changeOrigin: true,
         pathRewrite: {
           ['^' + process.env.VUE_APP_BASE_API]: ''

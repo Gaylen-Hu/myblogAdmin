@@ -190,6 +190,13 @@
         <el-form-item label="替代文本" prop="altText">
           <el-input v-model="form.altText" placeholder="请输入替代文本" />
         </el-form-item>
+        <el-form-item>
+          <el-button
+          type="primary"
+           @click="handleAIGenerate"
+           >AI生成</el-button>
+        </el-form-item>
+
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button type="primary" @click="submitForm">确 定</el-button>
@@ -222,9 +229,9 @@
 </template>
 
 <script>
-import { getOssStsToken, getFileList, getFileDetail, updateFile, deleteFile } from "@/api/file";
+import { getOssStsToken, getFileList, getFileDetail, updateFile, deleteFile , generateImgSeo} from "@/api/file";
 import { getToken } from "@/utils/auth";
-
+import EXIF from 'exif-js';
 export default {
   name: "File",
   data() {
@@ -299,6 +306,8 @@ export default {
     this.getList();
   },
   methods: {
+
+
     /** 查询文件列表 */
     getList() {
       this.loading = true;
@@ -317,6 +326,7 @@ export default {
     reset() {
       this.form = {
         id: undefined,
+        url: undefined,
         originalName: undefined,
         title: undefined,
         description: undefined,
@@ -421,6 +431,15 @@ export default {
       const sizes = ['Bytes', 'KB', 'MB', 'GB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    },
+    handleAIGenerate() {
+        generateImgSeo({url: this.form.url}).then(response => {
+          this.$modal.msgSuccess("AI生成成功");
+          this.form.title = response.data.seoInfo.title;
+          this.form.description = response.data.seoInfo.description;
+          this.form.altText = response.data.seoInfo.altText;
+        });
+
     },
     // 判断是否是图片
     isImage(mimeType) {

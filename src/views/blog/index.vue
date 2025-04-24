@@ -195,9 +195,16 @@
             size="mini"
             type="text"
             icon="el-icon-upload"
-            @click="publish(scope.row)"
+            @click="unpublish(scope.row)"
             v-if="scope.row.status !== 'published'"
           >发布</el-button>
+          <el-button
+            size="mini"
+            type="text"
+            icon="el-icon-upload"
+            @click="publish(scope.row)"
+            v-if="scope.row.status === 'published'"
+          >取消发布</el-button>
 
           <el-button
             size="mini"
@@ -323,6 +330,10 @@
               <image-upload
                 v-model="form.cover"
               />
+              <!-- ImagePicker -->
+              <image-picker
+                v-model="form.cover"
+               ></image-picker>
             </el-form-item>
           </el-tab-pane>
         </el-tabs>
@@ -346,11 +357,11 @@ import {
   updateBlog,
   deleteBlog,
   batchDeleteBlog,
-  generateSeoInfo,
   translateBlog,
   publishBlog
 } from "@/api/blog/blog";
 import { getAllTags, createTag } from "@/api/blog/tags";
+import {   generateSeoInfo,getFileList } from "@/api/file";
 import { getToken } from "@/utils/auth";
 import OSS from "ali-oss";
 
@@ -360,13 +371,12 @@ export default {
     return {
       // OSS client
       ossClient: null,
-
+      imageList:[],
       // Loading states
       loading: false,
       submitLoading: false,
       seoLoading: false,
       translateLoading: false,
-
       // Selection
       ids: [],
       single: true,
@@ -402,7 +412,7 @@ export default {
         tagStyle: "primary",
         keywords: "",
         summary: "",
-        cover: "",
+        cover: [],
         status: "draft"
       },
 
@@ -447,17 +457,21 @@ export default {
     this.initOSSClient();
     this.getTagOptions();
     this.getList();
+
   },
 
   methods: {
     // Initialize OSS client
     initOSSClient() {
-      this.ossClient = new OSS({
-        region: process.env.VUE_APP_OSS_REGION,
-        accessKeyId: process.env.VUE_APP_OSS_ACCESS_KEY_ID,
-        accessKeySecret: process.env.VUE_APP_OSS_ACCESS_KEY_SECRET,
-        bucket: process.env.VUE_APP_OSS_BUCKET
-      });
+      console.log("Initializing OSS client...",process.env);
+      const ossConfig = {
+        region: process.env.VUE_APP_REGION,
+        accessKeyId: process.env.VUE_APP_ACCESS_KEY_ID,
+        accessKeySecret: process.env.VUE_APP_ACCESS_KEY_SECRET,
+        bucket: process.env.VUE_APP_BUCKET
+      }
+      console.log(ossConfig);
+      this.ossClient = new OSS(ossConfig);
     },
 
     // Get tag options
@@ -567,6 +581,18 @@ export default {
       }).then(() => {
         this.getList();
         this.$message.success("发布成功");
+      }).catch(() => {});
+    },
+    unpublish(row) {
+      this.$confirm(`确认取消发布博客 "${row.title}" 吗？`, "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning"
+      }).then(() => {
+        return publishBlog(row.blogId);
+      }).then(() => {
+        this.getList();
+        this.$message.success("取消发布成功");
       }).catch(() => {});
     },
 
@@ -709,6 +735,7 @@ export default {
     submitForm() {
       this.$refs.form.validate(valid => {
         if (valid) {
+
           this.submitLoading = true;
           const promise = this.form.blogId
             ? updateBlog(this.form.blogId, this.form)

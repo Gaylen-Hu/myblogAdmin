@@ -61,6 +61,13 @@ import { translateBlogSSE } from '@/utils/request'
       method: 'patch'
     });
   }
+
+  export function unpublishBlog(id) {
+    return request({
+      url: `/blogs/${id}/unpublish`,
+      method: 'patch'
+    });
+  }
   // seo/generate
 
   export function seoGenerate(data) {

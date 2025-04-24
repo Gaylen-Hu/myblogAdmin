@@ -86,7 +86,7 @@ export default {
         if (val) {
           let temp = 1;
           // 首先将值转为数组
-          const list = Array.isArray(val) ? val : this.value.split(',');
+          const list = Array.isArray(val) ? val : val.split(',');
           // 然后将数组转为对象数组
           this.fileList = list.map(item => {
             if (typeof item === "string") {
